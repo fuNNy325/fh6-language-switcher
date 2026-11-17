@@ -1,0 +1,52 @@
+name: Windows build and release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build and run integration tests
+        shell: powershell
+        run: .\build.ps1 -Test
+      - name: Package portable application
+        shell: powershell
+        run: .\scripts\Package.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: FH6LanguageSwitcher-windows
+          path: |
+            dist/FH6LanguageSwitcher-*-win.zip
+            dist/FH6LanguageSwitcher-*-win.zip.sha256
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: FH6LanguageSwitcher-windows
+          path: release
+      - name: Publish tagged release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $assets = Get-ChildItem -LiteralPath release -File | ForEach-Object FullName
+          gh release create $env:RELEASE_TAG @assets --verify-tag --title $env:RELEASE_TAG --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release failed.' }

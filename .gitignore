@@ -1,0 +1,11 @@
+dist/
+artifacts/
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.zip
+*.str
+*.tmp
+.fh6-language-switcher/
